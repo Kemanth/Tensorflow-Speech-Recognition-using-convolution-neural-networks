@@ -1,7 +1,9 @@
 import numpy as np
 import librosa
-import numpy as np
 import os
+from keras.utils import to_categorical
+from sklearn.model_selection import train_test_split
+import tensorflow as tf
 
 DATA_PATH = "./data/"
 
@@ -31,7 +33,7 @@ def save_data_to_array(path=DATA_PATH, max_pad_len=11):
             mfcc_vectors.append(mfcc)
         np.save(label + '.npy', mfcc_vectors)
         
-from sklearn.model_selection import train_test_split
+
 
 def get_train_test(split_ratio=0.6, random_state=42):
     # Get available labels
@@ -77,9 +79,7 @@ def normal_full_layer(input_layer, size):
     b = init_bias([size])
     return tf.matmul(input_layer, W) + b
     
-from keras.utils import to_categorical
 
-import tensorflow as tf
 
 #save_data_to_array()
 
@@ -112,7 +112,7 @@ saver = tf.train.Saver()
 with tf.Session() as sess:
     sess.run(init)
     for i in range(250):
-        print(i)
+        print("Training Epoch : " + str(i))
         sess.run(train, feed_dict={x: X_train, y_true: y_train_hot, hold_prob: 0.5})
         
         # PRINT OUT A MESSAGE EVERY 100 STEPS
@@ -128,20 +128,41 @@ with tf.Session() as sess:
     
     saver.save(sess,'models/cnn_model.ckpt')
 
-    
-# Getting the MFCC
-sample = wav2mfcc('./data/bed/00f0204f_nohash_0.wav')
-# We need to reshape it remember?
-sample_reshaped = sample.reshape(1, 20, 11, 1)
-# Perform forward pass
 
-labels = ["happy", "cat", "bed"]
 
-with tf.Session() as sess:
-    
-    saver.restore(sess,'models/cnn_model.ckpt')
-    predict = tf.argmax(y_pred,1)
-    pred = sess.run(predict,feed_dict={x:sample_reshaped,y_true: y_train_hot, hold_prob: 1.0})
-    print(labels[pred[0]])
-    
+#Prediction on a new voice
+from tkinter import filedialog
+from tkinter import Tk,Label,Button,Canvas
 
+
+
+def browse_button():
+    # Allow user to select a directory and store it in global var
+    # called folder_path
+    global folder_path
+    global path
+    filename = filedialog.askopenfile()
+    sample = wav2mfcc(filename.name)
+    print(filename.name)
+    path = "aplay " + filename.name[50:]
+    sample_reshaped = sample.reshape(1, 20, 11, 1)
+    labels = ["happy", "cat", "bed"]
+    with tf.Session() as sess :
+        saver.restore(sess,'models/cnn_model.ckpt')
+        predict = tf.argmax(y_pred,1)
+        pred = sess.run(predict,feed_dict={x:sample_reshaped,y_true: y_train_hot, hold_prob: 1.0})
+        ans = labels[pred[0]]
+        canvas.create_text(350, 25, text = "The detected word is : " + ans, font=("Purisa", 25)) 
+        
+
+root = Tk()
+root.title("Welcome to voice predictor") 
+root.geometry('800x600')
+button2 = Button(text="Browse Audio File", command=browse_button, height = 1, width = 20,font=("Ariel", 15))
+button2.pack()
+canvas = Canvas(width=700, height=50, bg='green')
+canvas.pack()
+play = lambda : os.system(path)
+button = Button(root, text = 'Play Word Sound', command = play, height = 1, width = 20,font=("Purisa", 15))
+button.pack()
+root.mainloop()
